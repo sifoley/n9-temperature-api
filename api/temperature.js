@@ -1,96 +1,23 @@
-import crypto from 'crypto';
+import { TuyaContext } from '@tuya/tuya-connector-nodejs';
 
-const CLIENT_ID = process.env.TUYA_CLIENT_ID;
-const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET;
-const DEVICE_ID = process.env.TUYA_DEVICE_ID;
-
-const BASE_URL = 'https://openapi.tuyaeu.com';
-
-async function getToken() {
-
-  const t = Date.now().toString();
-
-  const signStr = CLIENT_ID + t;
-
-  const sign = crypto
-    .createHmac('sha256', CLIENT_SECRET)
-    .update(signStr)
-    .digest('hex')
-    .toUpperCase();
-
-  const response = await fetch(
-    `${BASE_URL}/v1.0/token?grant_type=1`,
-    {
-      method: 'GET',
-      headers: {
-        client_id: CLIENT_ID,
-        sign,
-        t,
-        sign_method: 'HMAC-SHA256'
-      }
-    }
-  );
-
-  const data = await response.json();
-
-  return data;
-}
+const tuya = new TuyaContext({
+  baseUrl: 'https://openapi.tuyaeu.com',
+  accessKey: process.env.TUYA_CLIENT_ID,
+  secretKey: process.env.TUYA_CLIENT_SECRET
+});
 
 export default async function handler(req, res) {
 
   try {
 
-    const tokenResponse = await getToken();
-
-    if (!tokenResponse.success) {
-      res.status(500).json({
-        stage: "token",
-        response: tokenResponse
-      });
-      return;
-    }
-
-    const token = tokenResponse.result.access_token;
-
-    const t = Date.now().toString();
-
-    const path = `/v1.0/iot-03/devices/${DEVICE_ID}/status`;
-
-    const signStr = CLIENT_ID + token + t + path;
-
-    const sign = crypto
-      .createHmac('sha256', CLIENT_SECRET)
-      .update(signStr)
-      .digest('hex')
-      .toUpperCase();
-
-    const response = await fetch(
-      `${BASE_URL}${path}`,
-      {
-        method: 'GET',
-        headers: {
-          client_id: CLIENT_ID,
-          access_token: token,
-          sign,
-          t,
-          sign_method: 'HMAC-SHA256'
-        }
-      }
-    );
-
-    const data = await response.json();
-
-    if (!data.success) {
-      res.status(500).json({
-        stage: "device",
-        response: data
-      });
-      return;
-    }
+    const response = await tuya.request({
+      path: `/v1.0/iot-03/devices/${process.env.TUYA_DEVICE_ID}/status`,
+      method: 'GET'
+    });
 
     const values = {};
 
-    data.result.forEach(item => {
+    response.result.forEach(item => {
       values[item.code] = item.value;
     });
 
