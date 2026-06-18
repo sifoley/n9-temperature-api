@@ -9,6 +9,7 @@ const BASE_URL = 'https://openapi.tuyaeu.com';
 async function getToken() {
 
   const t = Date.now().toString();
+
   const signStr = CLIENT_ID + t;
 
   const sign = crypto
@@ -20,6 +21,7 @@ async function getToken() {
   const response = await fetch(
     `${BASE_URL}/v1.0/token?grant_type=1`,
     {
+      method: 'GET',
       headers: {
         client_id: CLIENT_ID,
         sign,
@@ -31,14 +33,24 @@ async function getToken() {
 
   const data = await response.json();
 
-  return data.result.access_token;
+  return data;
 }
 
 export default async function handler(req, res) {
 
   try {
 
-    const token = await getToken();
+    const tokenResponse = await getToken();
+
+    if (!tokenResponse.success) {
+      res.status(500).json({
+        stage: "token",
+        response: tokenResponse
+      });
+      return;
+    }
+
+    const token = tokenResponse.result.access_token;
 
     const t = Date.now().toString();
 
@@ -55,6 +67,7 @@ export default async function handler(req, res) {
     const response = await fetch(
       `${BASE_URL}${path}`,
       {
+        method: 'GET',
         headers: {
           client_id: CLIENT_ID,
           access_token: token,
@@ -66,6 +79,14 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
+
+    if (!data.success) {
+      res.status(500).json({
+        stage: "device",
+        response: data
+      });
+      return;
+    }
 
     const values = {};
 
