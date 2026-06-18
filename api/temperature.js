@@ -1,7 +1,90 @@
+import crypto from 'crypto';
+
+const CLIENT_ID = process.env.TUYA_CLIENT_ID;
+const CLIENT_SECRET = process.env.TUYA_CLIENT_SECRET;
+const DEVICE_ID = process.env.TUYA_DEVICE_ID;
+
+const BASE_URL = 'https://openapi.tuyaeu.com';
+
+async function getToken() {
+
+  const t = Date.now().toString();
+  const signStr = CLIENT_ID + t;
+
+  const sign = crypto
+    .createHmac('sha256', CLIENT_SECRET)
+    .update(signStr)
+    .digest('hex')
+    .toUpperCase();
+
+  const response = await fetch(
+    `${BASE_URL}/v1.0/token?grant_type=1`,
+    {
+      headers: {
+        client_id: CLIENT_ID,
+        sign,
+        t,
+        sign_method: 'HMAC-SHA256'
+      }
+    }
+  );
+
+  const data = await response.json();
+
+  return data.result.access_token;
+}
+
 export default async function handler(req, res) {
-    res.status(200).json({
-        temperature: "-21.8",
-        humidity: "43",
-        battery: "92"
+
+  try {
+
+    const token = await getToken();
+
+    const t = Date.now().toString();
+
+    const path = `/v1.0/iot-03/devices/${DEVICE_ID}/status`;
+
+    const signStr = CLIENT_ID + token + t + path;
+
+    const sign = crypto
+      .createHmac('sha256', CLIENT_SECRET)
+      .update(signStr)
+      .digest('hex')
+      .toUpperCase();
+
+    const response = await fetch(
+      `${BASE_URL}${path}`,
+      {
+        headers: {
+          client_id: CLIENT_ID,
+          access_token: token,
+          sign,
+          t,
+          sign_method: 'HMAC-SHA256'
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    const values = {};
+
+    data.result.forEach(item => {
+      values[item.code] = item.value;
     });
+
+    res.status(200).json({
+      temperature: values.va_temperature / 10,
+      humidity: values.va_humidity,
+      battery: values.battery_state
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
 }
