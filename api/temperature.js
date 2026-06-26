@@ -34,13 +34,19 @@ export default async function handler(req, res) {
     res.status(200).json({
       temperature: values.va_temperature / 10,
       humidity: values.va_humidity,
-      battery: values.battery_state
+      battery: values.battery_state,
+      live: true
     });
 
   } catch (error) {
 
-    res.status(500).json({
-      error: error.message
+    console.error("Using fallback values:", error);
+
+    res.status(200).json({
+      temperature: -19.9,
+      humidity: 72,
+      battery: "offline",
+      live: false
     });
 
   }
