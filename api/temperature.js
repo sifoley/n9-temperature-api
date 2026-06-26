@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       temperature: values.va_temperature / 10,
       humidity: values.va_humidity,
       battery: values.battery_state,
-      live: true
+      live: false
     });
 
   } catch (error) {
